@@ -3,8 +3,10 @@ package web
 import (
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -339,10 +341,23 @@ func Start(port string, shouldOpenBrowser bool) {
 	RegisterCollectionRoutes(api)
 	RegisterVideogenRoutes(api, videoDir)
 
+	listenAddr := ":" + port
+	listener, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "address already in use") {
+			fmt.Fprintf(os.Stderr, "Failed to start web server: port %s is already in use. Please use --port to specify another port, e.g. music-dl web --port 8081\n", port)
+			return
+		}
+		fmt.Fprintf(os.Stderr, "Failed to start web server on %s: %v\n", listenAddr, err)
+		return
+	}
+
 	urlStr := "http://localhost:" + port + RoutePrefix
 	fmt.Printf("Web started at %s\n", urlStr)
 	if shouldOpenBrowser {
 		go func() { time.Sleep(500 * time.Millisecond); core.OpenBrowser(urlStr) }()
 	}
-	r.Run(":" + port)
+	if err := http.Serve(listener, r); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		fmt.Fprintf(os.Stderr, "Web server stopped with error: %v\n", err)
+	}
 }
