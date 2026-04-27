@@ -487,7 +487,6 @@ go-music-dl/
 ├── package_ios.bat        # 构建IOS移动应用脚本
 ├── run.bat                # Go Music DL - 启动脚本 (Windows)
 └── run.sh                 # Go Music DL - 启动脚本 (Linux/macOS)
-
 ```
 
 ## 技术栈
