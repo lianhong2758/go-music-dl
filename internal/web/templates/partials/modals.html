@@ -83,12 +83,14 @@
                 <input type="number" id="setting-cli-page-size" min="1" max="200" step="1" placeholder="默认 20">
                 <p class="setting-hint" style="margin-left: 0;">用于 TUI 分页显示，默认 20。</p>
             </div>
-            <div class="cookie-item setting-item">
-                <div class="setting-action-row">
-                    <button type="button" class="btn-pill btn-pill-primary" onclick="openAboutAppModal()"><i class="fa-solid fa-circle-info"></i> 关于 go-music-dl</button>
-                </div>
-                <p class="setting-hint">查看当前版本并检查 GitHub 是否有新版。</p>
-            </div>
+            <button type="button" class="cookie-item setting-item setting-link-row" onclick="openAboutAppModal()">
+                <span class="setting-link-icon"><i class="fa-solid fa-circle-info"></i></span>
+                <span class="setting-link-body">
+                    <span class="setting-link-title">关于 go-music-dl</span>
+                    <span class="setting-link-desc">查看当前版本并检查 GitHub 是否有新版</span>
+                </span>
+                <i class="fa-solid fa-chevron-right setting-link-chevron" aria-hidden="true"></i>
+            </button>
             <div class="cookie-item setting-item">
                 <label class="setting-toggle" for="setting-vg-change-cover">
                     <input type="checkbox" id="setting-vg-change-cover">

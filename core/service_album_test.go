@@ -315,6 +315,7 @@ func TestGetOriginalLinkSupportsPlaylists(t *testing.T) {
 		{source: "netease", id: "123", want: "https://music.163.com/#/playlist?id=123"},
 		{source: "qq", id: "abc", want: "https://y.qq.com/n/ryqq/playlist/abc"},
 		{source: "kugou", id: "456", want: "https://www.kugou.com/yy/special/single/456.html"},
+		{source: "kugou", id: "cloudlist:456", want: ""},
 		{source: "kuwo", id: "789", want: "http://www.kuwo.cn/playlist_detail/789"},
 		{source: "migu", id: "321", want: "https://music.migu.cn/v5/#/playlist?playlistId=321&playlistType=ordinary"},
 		{source: "jamendo", id: "654", want: "https://www.jamendo.com/playlist/654"},

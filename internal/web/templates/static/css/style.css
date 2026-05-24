@@ -505,6 +505,58 @@ body.batch-mode .song-card { padding-left: 10px; }
     border-radius: 10px;
     background: #f8fafc;
 }
+.setting-link-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    color: var(--text-main);
+    font: inherit;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+.setting-link-row:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+}
+.setting-link-row:active { transform: scale(0.995); }
+.setting-link-row:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
+.setting-link-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #ecfdf5;
+    color: #10b981;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+.setting-link-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+.setting-link-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-main);
+}
+.setting-link-desc {
+    font-size: 12px;
+    color: #718096;
+    line-height: 1.45;
+}
+.setting-link-chevron {
+    color: #cbd5e1;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+.setting-link-row:hover .setting-link-chevron { color: #94a3b8; }
 .setting-toggle {
     display: flex !important;
     align-items: center;

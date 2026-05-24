@@ -653,6 +653,9 @@ func GetOriginalLink(source, id, typeStr string) string {
 			return "https://www.kugou.com/album/" + id + ".html"
 		}
 		if typeStr == "playlist" {
+			if strings.HasPrefix(id, "cloudlist:") {
+				return ""
+			}
 			return "https://www.kugou.com/yy/special/single/" + id + ".html"
 		}
 		return "https://www.kugou.com/song/#hash=" + id

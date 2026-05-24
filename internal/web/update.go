@@ -18,7 +18,7 @@ import (
 	"github.com/guohuiyuan/go-music-dl/core"
 )
 
-const githubRequestTimeout = 8 * time.Second
+const githubRequestTimeout = 5 * time.Second
 
 var githubAPIBaseURL = "https://api.github.com"
 
@@ -177,16 +177,46 @@ func fetchLatestGitHubRelease(ctx context.Context, owner string, repo string, pr
 	apiURL := strings.TrimRight(githubAPIBaseURL, "/") + fmt.Sprintf("/repos/%s/%s/releases/latest", owner, repo)
 	candidates := []string{apiURL}
 	if proxyEnabled && strings.TrimSpace(proxyURL) != "" {
-		candidates = []string{proxiedGitHubURL(apiURL, proxyURL, true), apiURL}
+		if proxied := proxiedGitHubURL(apiURL, proxyURL, true); proxied != "" && proxied != apiURL {
+			candidates = []string{proxied, apiURL}
+		}
+	}
+
+	if len(candidates) == 1 {
+		return requestGitHubRelease(ctx, candidates[0])
+	}
+	return raceGitHubReleaseCandidates(ctx, candidates)
+}
+
+func raceGitHubReleaseCandidates(ctx context.Context, urls []string) (githubRelease, error) {
+	type fetchResult struct {
+		release githubRelease
+		err     error
+	}
+
+	raceCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	results := make(chan fetchResult, len(urls))
+	for _, candidate := range urls {
+		candidate := candidate
+		go func() {
+			release, err := requestGitHubRelease(raceCtx, candidate)
+			results <- fetchResult{release: release, err: err}
+		}()
 	}
 
 	var lastErr error
-	for _, candidate := range candidates {
-		release, err := requestGitHubRelease(ctx, candidate)
-		if err == nil {
-			return release, nil
+	for i := 0; i < len(urls); i++ {
+		select {
+		case r := <-results:
+			if r.err == nil {
+				return r.release, nil
+			}
+			lastErr = r.err
+		case <-ctx.Done():
+			return githubRelease{}, ctx.Err()
 		}
-		lastErr = err
 	}
 	if lastErr == nil {
 		lastErr = errors.New("GitHub release request failed")

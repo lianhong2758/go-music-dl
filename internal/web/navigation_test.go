@@ -202,6 +202,10 @@ func TestSettingsModalIncludesDownloadDirPresets(t *testing.T) {
 		`id="setting-floating-lyrics"`,
 		`onclick="openAboutAppModal()"`,
 		`关于 go-music-dl`,
+		`class="cookie-item setting-item setting-link-row"`,
+		`setting-link-icon`,
+		`setting-link-title`,
+		`setting-link-chevron`,
 		`{album}`,
 		`{source}`,
 		`{ext}`,
@@ -229,6 +233,8 @@ func TestSettingsModalIncludesDownloadDirPresets(t *testing.T) {
 		`id="updateGithubProxyCustom"`,
 		`onchange="applyUpdateProxyVisibility()"`,
 		`onclick="testUpdateGithubProxy()"`,
+		`btn-pill btn-pill-primary" onclick="openAboutAppModal()"`,
+		`setting-action-row`,
 	} {
 		if strings.Contains(html, unwanted) {
 			t.Fatalf("modals.html should not contain removed update control %q", unwanted)

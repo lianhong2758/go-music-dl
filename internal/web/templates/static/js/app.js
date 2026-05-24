@@ -2127,7 +2127,8 @@ function drawQRCodeToCanvas(text, canvas) {
 async function checkAppUpdate(options = {}) {
     const status = document.getElementById('updateCheckStatus');
     const repoURL = options.repoURL || webSettings.updateRepoUrl || DEFAULT_UPDATE_REPO_URL;
-    const proxyEnabled = options.proxyEnabled ?? !!webSettings.githubProxyEnabled;
+    // 版本检测默认与镜像并发竞速，谁先返回用谁；不绑定下载侧的 webSettings.githubProxyEnabled。
+    const proxyEnabled = options.proxyEnabled ?? true;
     const proxyURL = options.proxyURL || webSettings.githubProxyUrl || DEFAULT_GITHUB_PROXY_URL;
     const params = new URLSearchParams({
         repo: repoURL,
