@@ -29,6 +29,21 @@ func TestSetDownloadHeaderUsesUTF8FilenameStar(t *testing.T) {
 	}
 }
 
+func TestSetDownloadHeaderUsesBaseNameForRelativePath(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+
+	filename := "阮俊霖/专辑/没地址的信 - 阮俊霖.flac"
+	want := "没地址的信 - 阮俊霖.flac"
+	setDownloadHeader(c, filename)
+
+	header := rec.Header().Get("Content-Disposition")
+	if !strings.Contains(header, "filename*=UTF-8''"+url.PathEscape(want)) {
+		t.Fatalf("Content-Disposition = %q, want UTF-8 base filename*", header)
+	}
+}
+
 func TestASCIIDownloadFilenameFallback(t *testing.T) {
 	tests := []struct {
 		name string

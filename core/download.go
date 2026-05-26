@@ -107,6 +107,13 @@ func SaveSongToFileWithTemplate(song *model.Song, outDir string, withCover bool,
 	if err != nil {
 		return nil, err
 	}
+	return saveDownloadedSongToFile(result, outDir)
+}
+
+func saveDownloadedSongToFile(result *DownloadedSong, outDir string) (*DownloadedSong, error) {
+	if result == nil {
+		return nil, errors.New("download result is nil")
+	}
 
 	targetDir := strings.TrimSpace(outDir)
 	if targetDir == "" {
@@ -118,8 +125,11 @@ func SaveSongToFileWithTemplate(song *model.Song, outDir string, withCover bool,
 		return nil, err
 	}
 
-	fileName := result.Filename
+	fileName := sanitizeDownloadRelativePath(result.Filename)
 	filePath := filepath.Join(targetDir, fileName)
+	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		return nil, err
+	}
 	if err := os.WriteFile(filePath, result.Data, 0644); err != nil {
 		return nil, err
 	}
@@ -152,6 +162,11 @@ func BuildDownloadFilename(song *model.Song, ext string, filenameTemplate string
 		source = strings.TrimSpace(song.Source)
 		id = strings.TrimSpace(song.ID)
 	}
+	name = sanitizeDownloadTemplateValue(name, "Unknown")
+	artist = sanitizeDownloadTemplateValue(artist, "Unknown")
+	album = sanitizeDownloadTemplateValue(album, "")
+	source = sanitizeDownloadTemplateValue(source, "")
+	id = sanitizeDownloadTemplateValue(id, "")
 
 	hasExtToken := strings.Contains(template, "{ext}")
 	rendered := strings.NewReplacer(
@@ -171,7 +186,44 @@ func BuildDownloadFilename(song *model.Song, ext string, filenameTemplate string
 		rendered += "." + ext
 	}
 
-	return utils.SanitizeFilename(rendered)
+	return sanitizeDownloadRelativePath(rendered)
+}
+
+func sanitizeDownloadRelativePath(name string) string {
+	name = strings.ReplaceAll(strings.TrimSpace(name), "\\", "/")
+	parts := strings.Split(name, "/")
+	safeParts := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = sanitizeDownloadPathSegment(part)
+		if part == "" || part == "." || part == ".." {
+			continue
+		}
+		safeParts = append(safeParts, part)
+	}
+	if len(safeParts) == 0 {
+		return "download"
+	}
+	return filepath.Join(safeParts...)
+}
+
+func sanitizeDownloadTemplateValue(value string, fallback string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback
+	}
+	value = sanitizeDownloadPathSegment(value)
+	if value == "" {
+		return fallback
+	}
+	return value
+}
+
+func sanitizeDownloadPathSegment(value string) string {
+	value = strings.Trim(value, " .")
+	if value == "" {
+		return ""
+	}
+	return strings.Trim(utils.SanitizeFilename(value), " .")
 }
 
 func fetchSongAudio(song *model.Song) ([]byte, string, error) {

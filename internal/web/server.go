@@ -90,7 +90,10 @@ func corsMiddleware() gin.HandlerFunc {
 }
 
 func setDownloadHeader(c *gin.Context, filename string) {
-	filename = strings.TrimSpace(filename)
+	filename = strings.ReplaceAll(strings.TrimSpace(filename), "\\", "/")
+	if slash := strings.LastIndex(filename, "/"); slash >= 0 {
+		filename = strings.TrimSpace(filename[slash+1:])
+	}
 	if filename == "" {
 		filename = "download"
 	}
