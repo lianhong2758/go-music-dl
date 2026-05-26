@@ -392,6 +392,7 @@ jobs:
     needs:
       - goreleaser
     runs-on: windows-latest
+    environment: release
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -464,9 +465,16 @@ jobs:
           call "%SDKMANAGER%" --licenses < NUL
           call "%SDKMANAGER%" "platform-tools" "platforms;android-33" "build-tools;34.0.0" "ndk;27.0.12077973"
 
+      - name: Decode Android signing keystore
+        shell: powershell
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          [IO.File]::WriteAllBytes("release.keystore", [Convert]::FromBase64String($env:ANDROID_KEYSTORE_BASE64))
       - name: Build APK
         shell: cmd
         run: package_app.bat
+         del /q release.keystore
 
       - name: Verify APK
         shell: cmd
