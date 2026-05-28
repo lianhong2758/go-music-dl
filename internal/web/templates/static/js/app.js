@@ -433,6 +433,22 @@ function lyricURLsForSong(song) {
 window.buildLyricRequestURL = buildLyricRequestURL;
 window.lyricURLsForSong = lyricURLsForSong;
 
+async function openDesktopLyrics() {
+    if (window.DesktopLyricsSync && typeof window.DesktopLyricsSync.sendNow === 'function') {
+        window.DesktopLyricsSync.sendNow();
+    }
+    if (typeof window.musicDlOpenDesktopLyrics === 'function') {
+        try {
+            await window.musicDlOpenDesktopLyrics();
+            return;
+        } catch (_) {
+        }
+    }
+    window.open(`${API_ROOT}/desktop_lyrics`, 'musicDlDesktopLyrics', 'width=900,height=260');
+}
+
+window.openDesktopLyrics = openDesktopLyrics;
+
 function updateDownloadButton(link) {
     if (!link) return;
 
@@ -3375,13 +3391,111 @@ window.ap = ap;
 let currentPlayingId = null;
 window.currentPlayingId = null; 
 
+const DesktopLyricsSync = (() => {
+    let pendingTimer = 0;
+
+    function finiteNumber(value, fallback = 0) {
+        const n = Number(value);
+        return Number.isFinite(n) && n >= 0 ? n : fallback;
+    }
+
+    function buildState(activeOverride = null) {
+        const audio = getCurrentAPlayerAudio();
+        const playing = !!(ap?.audio && !ap.audio.paused && audio);
+        const durationSeconds = finiteNumber(ap?.audio?.duration, finiteNumber(audio?.duration, 0));
+        let lyricURL = audio?.raw_lrc || audio?.lrc || '';
+        let lineLyricURL = audio?.lrc || '';
+        if (!lyricURL && audio?.custom_id) {
+            const lyricURLs = lyricURLsForSong({
+                id: audio.custom_id,
+                source: audio.source || '',
+                name: audio.name || '',
+                artist: audio.artist || '',
+                album: audio.album || '',
+                duration: audio.duration || 0,
+                extra: audio.extra || ''
+            });
+            lyricURL = lyricURLs.auto;
+            lineLyricURL = lyricURLs.line;
+        }
+        return {
+            active: activeOverride === null ? !!(audio && lyricURL) : !!activeOverride,
+            playing,
+            name: audio?.name || '',
+            artist: audio?.artist || '',
+            album: audio?.album || '',
+            source: audio?.source || '',
+            id: audio?.custom_id || '',
+            lyric_url: lyricURL,
+            line_lyric_url: lineLyricURL,
+            position_ms: Math.round(finiteNumber(ap?.audio?.currentTime, 0) * 1000),
+            duration_ms: Math.round(durationSeconds * 1000),
+            client_time_ms: Date.now()
+        };
+    }
+
+    function postState(state) {
+        fetch(`${API_ROOT}/desktop_lyrics/state`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(state),
+            keepalive: true
+        }).catch(() => {});
+    }
+
+    function sendNow(activeOverride = null) {
+        if (pendingTimer) {
+            clearTimeout(pendingTimer);
+            pendingTimer = 0;
+        }
+        postState(buildState(activeOverride));
+    }
+
+    function sendSoon(delay = 80, activeOverride = null) {
+        if (pendingTimer) clearTimeout(pendingTimer);
+        pendingTimer = setTimeout(() => {
+            pendingTimer = 0;
+            sendNow(activeOverride);
+        }, delay);
+    }
+
+    setInterval(() => {
+        if (ap?.audio && !ap.audio.paused) {
+            sendNow();
+        }
+    }, 220);
+
+    window.addEventListener('beforeunload', () => {
+        try {
+            navigator.sendBeacon(`${API_ROOT}/desktop_lyrics/state`, new Blob([JSON.stringify(buildState(false))], { type: 'application/json' }));
+        } catch (_) {
+        }
+    });
+
+    return { sendNow, sendSoon };
+})();
+
+window.DesktopLyricsSync = DesktopLyricsSync;
+
 setupMediaSession();
 ap.audio.addEventListener('timeupdate', () => KaraokeLyrics.update());
-ap.audio.addEventListener('seeked', () => KaraokeLyrics.update());
-ap.audio.addEventListener('loadedmetadata', () => KaraokeLyrics.load(getCurrentAPlayerAudio()));
+ap.audio.addEventListener('seeked', () => {
+    KaraokeLyrics.update();
+    DesktopLyricsSync.sendNow();
+});
+ap.audio.addEventListener('loadedmetadata', () => {
+    KaraokeLyrics.load(getCurrentAPlayerAudio());
+    DesktopLyricsSync.sendNow();
+});
 ap.audio.addEventListener('play', () => KaraokeLyrics.handlePlayStateChange(true));
-ap.audio.addEventListener('pause', () => KaraokeLyrics.handlePlayStateChange(false));
-ap.audio.addEventListener('ended', () => KaraokeLyrics.handlePlayStateChange(false));
+ap.audio.addEventListener('pause', () => {
+    KaraokeLyrics.handlePlayStateChange(false);
+    DesktopLyricsSync.sendNow();
+});
+ap.audio.addEventListener('ended', () => {
+    KaraokeLyrics.handlePlayStateChange(false);
+    DesktopLyricsSync.sendNow(false);
+});
 
 setTimeout(() => {
     const apPic = document.querySelector('.aplayer-pic');
@@ -3443,6 +3557,7 @@ ap.on('listswitch', (e) => {
     syncMediaSession(newAudio || getCurrentAPlayerAudio());
     scheduleMediaSessionSync(newAudio || getCurrentAPlayerAudio(), 180);
     KaraokeLyrics.load(newAudio || getCurrentAPlayerAudio());
+    DesktopLyricsSync.sendSoon(60);
 });
 
 ap.on('play', () => {
@@ -3457,6 +3572,7 @@ ap.on('play', () => {
     syncMediaSession(audio || getCurrentAPlayerAudio());
     scheduleMediaSessionSync(audio || getCurrentAPlayerAudio(), 180);
     KaraokeLyrics.load(audio || getCurrentAPlayerAudio());
+    DesktopLyricsSync.sendNow();
     
     if (window.VideoGen && window.VideoGen.updatePlayBtnState) {
         window.VideoGen.updatePlayBtnState(true);
@@ -3466,6 +3582,7 @@ ap.on('play', () => {
 ap.on('pause', () => {
     syncAllPlayButtons();
     syncMediaSession();
+    DesktopLyricsSync.sendNow();
     if (window.VideoGen && window.VideoGen.updatePlayBtnState) {
         window.VideoGen.updatePlayBtnState(false);
     }
@@ -3478,6 +3595,7 @@ ap.on('ended', () => {
     syncAllPlayButtons();
     scheduleMediaSessionSync(getCurrentAPlayerAudio(), 180);
     KaraokeLyrics.hide();
+    DesktopLyricsSync.sendNow(false);
 });
 
 function highlightCard(targetId) {

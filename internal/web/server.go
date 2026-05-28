@@ -443,6 +443,7 @@ func StartWithOptions(port string, opts StartOptions) {
 	RegisterLocalMusicRoutes(api)
 	RegisterVideogenRoutes(api, videoDir)
 	RegisterUpdateRoutes(api)
+	RegisterDesktopLyricsRoutes(api)
 
 	listenAddr := opts.ListenHost + ":" + port
 	listener, err := net.Listen("tcp", listenAddr)

@@ -462,7 +462,9 @@ body.batch-mode .song-card { padding-left: 10px; }
 
 .settings-float { position: absolute; top: 30px; right: 30px; background: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); color: var(--text-sub); transition: 0.2s; z-index: 20; }
 .settings-float:hover { color: #10b981; transform: rotate(90deg); }
-.auth-float { position: absolute; top: 82px; right: 30px; z-index: 20; margin: 0; }
+.desktop-lyrics-float { position: absolute; top: 82px; right: 30px; border: none; background: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); color: var(--text-sub); transition: 0.2s; z-index: 20; }
+.desktop-lyrics-float:hover { color: white; background: #10b981; transform: translateY(-2px); box-shadow: 0 8px 18px rgba(16, 185, 129, 0.28); }
+.auth-float { position: absolute; top: 134px; right: 30px; z-index: 20; margin: 0; }
 .auth-float button { border: none; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: 0.2s; }
 .auth-float.auth-login button { background: #ecfdf5; color: #059669; border: 1px solid rgba(5, 150, 105, 0.18); }
 .auth-float.auth-logout button { background: #fff1f2; color: #e11d48; border: 1px solid rgba(225, 29, 72, 0.18); }
@@ -1341,7 +1343,8 @@ body.karaoke-lyrics-active .aplayer .aplayer-lrc p.aplayer-lrc-current {
     
     .btn-circle { width: 34px; height: 34px; font-size: 13px; }
     .settings-float { top: 15px; right: 15px; width: 36px; height: 36px; }
-    .auth-float { top: 60px; right: 15px; }
+    .desktop-lyrics-float { top: 60px; right: 15px; width: 36px; height: 36px; }
+    .auth-float { top: 105px; right: 15px; }
     .auth-float button { width: 36px; height: 36px; }
     .auth-page { padding: 24px 14px; }
     .auth-card { padding: 26px 20px; border-radius: 16px; }
