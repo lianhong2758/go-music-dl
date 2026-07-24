@@ -537,13 +537,13 @@ func detectSource(link string) string {
 type sessionState int
 
 const (
-	stateInput          sessionState = iota // 输入搜索词
-	stateLoading                            // 搜索中
-	stateList                               // 歌曲结果列表 & 选择
-	statePlaylistResult                     // 歌单结果列表
-	stateDownloading                        // 下载中
-	stateConfirmDownload                    // 下载前确认
-	stateSwitching                          // 换源中
+	stateInput           sessionState = iota // 输入搜索词
+	stateLoading                             // 搜索中
+	stateList                                // 歌曲结果列表 & 选择
+	statePlaylistResult                      // 歌单结果列表
+	stateDownloading                         // 下载中
+	stateConfirmDownload                     // 下载前确认
+	stateSwitching                           // 换源中
 )
 
 // --- 主模型 ---
@@ -566,12 +566,12 @@ type modelState struct {
 	withLyrics bool
 
 	// 下载队列管理
-	downloadQueue []model.Song // 待下载队列
-	totalToDl     int          // 总共需要下载的数量
-	downloaded    int          // 成功完成数量
-	skipped       int          // 已存在跳过数量
-	failed        int          // 失败数量
-	allSongsSet   map[string]struct{} // 全部文件.txt 的去重集合，批量下载时复用
+	downloadQueue []model.Song        // 待下载队列
+	totalToDl     int                 // 总共需要下载的数量
+	downloaded    int                 // 成功完成数量
+	skipped       int                 // 已存在跳过数量
+	failed        int                 // 失败数量
+	allSongsSet   map[string]struct{} // SQLite 去重集合，批量下载时复用
 
 	// 换源队列管理
 	switchQueue []int

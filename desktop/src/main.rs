@@ -209,12 +209,8 @@ fn start_backend(
         .arg(server_config::PORT)
         .current_dir(app_data_dir);
 
-    // 传递 Rust exe 所在目录给 Go 后端，用于确定数据文件写入位置
-    if let Ok(exe_path) = std::env::current_exe() {
-        if let Some(exe_dir) = exe_path.parent() {
-            cmd.env("MUSIC_DL_DATA_DIR", exe_dir);
-        }
-    }
+    // Use the verified writable data directory for every backend-owned file.
+    cmd.env("MUSIC_DL_DATA_DIR", app_data_dir);
 
     if let Some(file) = log_file {
         if let Ok(stdout) = file.try_clone() {

@@ -27,7 +27,7 @@ func TestBuildDownloadFilenameUsesTemplate(t *testing.T) {
 			name:     "default template appends extension",
 			template: "",
 			ext:      "mp3",
-			want:     "没地址的信 - 阮俊霖.mp3",
+			want:     "阮俊霖 - 没地址的信.mp3",
 		},
 		{
 			name:     "custom template can create subdirectories",

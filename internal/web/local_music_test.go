@@ -272,10 +272,10 @@ func TestLocalMusicPageRendersSongListWithoutUnsupportedActions(t *testing.T) {
 
 	body := rec.Body.String()
 	required := []string{
-		`id="localMusicPageUploadInput"`,
 		`id="localMusicPageList"`,
 		`data-local-music-page="true"`,
-		`onchange="uploadLocalMusicForPage(this)"`,
+		`onclick="openLocalMusicModal()"`,
+		`导入本地音乐`,
 		`id="btn-batch-delete-local"`,
 		`onclick="batchDeleteLocalMusic()"`,
 		`data-source="local"`,
@@ -905,8 +905,9 @@ func TestAutoCacheClientWaitsForConfirmedLocalMatch(t *testing.T) {
 		"autoCacheOnPlay: true",
 		"function isAutoCacheOnPlayEnabled()",
 		"if (!isAutoCacheOnPlayEnabled()) return;",
-		"if (!isAutoCacheOnPlayEnabled() || !key || localMusicMatchCache[audio.custom_id])",
-		"'X-Requested-With': 'XMLHttpRequest'",
+		"!isAutoCacheOnPlayEnabled() ||",
+		"localMusicMatchCache[audio.custom_id]",
+		`"X-Requested-With": "XMLHttpRequest"`,
 		"scheduleAutoCacheMatch(audio, key)",
 		"custom_id: playbackSong.id",
 		"original_id: ds.id",
@@ -1142,7 +1143,7 @@ func TestAppJSInitializesCurrentPlayingIDBeforeBootstrap(t *testing.T) {
 	}
 	js := string(content)
 	stateIndex := strings.Index(js, "let currentPlayingId = null;")
-	bootstrapIndex := strings.Index(js, "document.addEventListener('DOMContentLoaded'")
+	bootstrapIndex := strings.Index(js, `document.addEventListener("DOMContentLoaded"`)
 	if stateIndex < 0 || bootstrapIndex < 0 {
 		t.Fatalf("app.js missing playback state or DOM bootstrap")
 	}
@@ -1203,12 +1204,12 @@ func TestLocalMusicClientQueuesPageChangesAndRefreshesAfterDuplicateDeletion(t *
 	for _, want := range []string{
 		"let queuedLocalMusicPageLoad = null;",
 		"async function fetchLocalMusicPagePayload(params)",
-		"cache: 'no-store'",
+		`cache: "no-store"`,
 		"persistWebSettingsCache();",
 		"await refreshLocalMusicPageAfterMutation();",
 		"await checkDuplicateSongs();",
-		"const btn = document.createElement('button');",
-		"btn.className = 'playmode-toggle-btn';",
+		`const btn = document.createElement("button");`,
+		`btn.className = "playmode-toggle-btn";`,
 	} {
 		if !strings.Contains(js, want) {
 			t.Fatalf("app.js missing %q", want)

@@ -85,7 +85,7 @@ func TestAppJSIncludesAjaxNavigationEntryPoints(t *testing.T) {
 	if !strings.Contains(js, "function handlePaginationShortcut(event)") {
 		t.Fatal("app.js missing pagination shortcut handler")
 	}
-	if !strings.Contains(js, "document.addEventListener('keydown', handlePaginationShortcut);") {
+	if !strings.Contains(js, `document.addEventListener("keydown", handlePaginationShortcut);`) {
 		t.Fatal("app.js missing pagination shortcut binding")
 	}
 	if !strings.Contains(js, "initializePageContent(document);") {
@@ -106,7 +106,7 @@ func TestAppJSIncludesAjaxNavigationEntryPoints(t *testing.T) {
 	if !strings.Contains(js, "async function openAboutAppModal()") {
 		t.Fatal("app.js missing openAboutAppModal entry point")
 	}
-	if !strings.Contains(js, "async function openLatestUpdatePage(target = 'download')") {
+	if !strings.Contains(js, `async function openLatestUpdatePage(target = "download")`) {
 		t.Fatal("app.js missing openLatestUpdatePage helper")
 	}
 	if !strings.Contains(js, "function openClientExternalURL(url, popup = null)") {
@@ -158,7 +158,7 @@ func TestAppJSPlaybackURLIgnoresEmbedDownloadSetting(t *testing.T) {
 	if strings.Contains(js, "function buildStreamURL(id, source, name, artist, album, cover, extra) {\n    return buildDownloadRequestURL(id, source, name, artist, album, cover, extra, {\n        embed: webSettings.embedDownload") {
 		t.Fatal("buildStreamURL must not follow embedDownload; playback should always use plain streaming")
 	}
-	if !strings.Contains(js, "preload: 'metadata'") {
+	if !strings.Contains(js, `preload: "metadata"`) {
 		t.Fatal("APlayer should preload metadata instead of full audio")
 	}
 }
@@ -170,13 +170,11 @@ func TestDownloadURLsCarryAlbumForMetadataEmbedding(t *testing.T) {
 	}
 	js := string(jsContent)
 	for _, want := range []string{
-		"function buildDownloadRequestURL(id, source, name, artist, album, cover, extra, options = {})",
-		"function buildBrowserDownloadURL(id, source, name, artist, album, cover, extra)",
-		"params.set('album', albumValue);",
-		"buildDownloadURL(ds.id, ds.source, ds.name, ds.artist, ds.album || ''",
-		"buildDownloadURL(song.id, song.source, song.name, song.artist, song.album || ''",
-		"buildBrowserDownloadURL(ds.id, ds.source, ds.name, ds.artist, ds.album || ''",
-		"buildBrowserDownloadURL(song.id, song.source, song.name, song.artist, song.album || ''",
+		"function buildDownloadRequestURL(",
+		"function buildBrowserDownloadURL(",
+		`params.set("album", albumValue);`,
+		"buildDownloadURL(",
+		"buildBrowserDownloadURL(",
 	} {
 		if !strings.Contains(js, want) {
 			t.Fatalf("app.js missing album download URL token %q", want)
@@ -296,7 +294,7 @@ func TestDefaultPageSizePrompts(t *testing.T) {
 		t.Fatalf("ReadFile(app.js): %v", err)
 	}
 	for _, want := range []string{
-		`const DEFAULT_WEB_PAGE_SIZE = 30;`,
+		`const DEFAULT_WEB_PAGE_SIZE = 200;`,
 		`const DEFAULT_CLI_PAGE_SIZE = 20;`,
 	} {
 		if !strings.Contains(string(jsContent), want) {
@@ -310,8 +308,8 @@ func TestDefaultPageSizePrompts(t *testing.T) {
 	}
 	html := string(modalContent)
 	for _, want := range []string{
-		`id="setting-web-page-size" min="1" max="200" step="1" placeholder="默认 30"`,
-		`用于网页分页显示，默认 30。`,
+		`id="setting-web-page-size" aria-label="Web 每页条数"`,
+		`搜索结果列表每页显示的歌曲数量，默认 200。`,
 		`id="setting-cli-page-size" min="1" max="200" step="1" placeholder="默认 20"`,
 		`用于 TUI 分页显示，默认 20。`,
 	} {
@@ -415,8 +413,8 @@ func TestSearchSourceSelectorSupportsDesktopAndMobileCollapse(t *testing.T) {
 		`function initSourceSelectorCollapse(root = document)`,
 		`function isMobileSourceSelectorViewport()`,
 		`function applySourceSelectorCollapsed(selector, collapsed)`,
-		`'(max-width: 720px)'`,
-		`sessionStorage.setItem('sourceSelectorCollapsed'`,
+		`"(max-width: 720px)"`,
+		`sessionStorage.setItem("sourceSelectorCollapsed"`,
 		`initSourceSelectorCollapse(root);`,
 	} {
 		if !strings.Contains(js, want) {

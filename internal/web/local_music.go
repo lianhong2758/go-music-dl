@@ -319,6 +319,10 @@ func RegisterLocalMusicRoutes(api *gin.RouterGroup) {
 			return
 		}
 		upsertLocalMusicIndexRow(track)
+		if err := core.SaveDownloadDedupEntry(track.Name, track.Artist); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "音乐文件已保存，但曲库索引写入失败: " + err.Error()})
+			return
+		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"status": "ok",

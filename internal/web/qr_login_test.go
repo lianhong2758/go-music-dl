@@ -13,7 +13,7 @@ func TestSodaQRLoginUIIncludesSMSFlow(t *testing.T) {
 	}
 	js := string(jsBytes)
 	for _, want := range []string{
-		"soda: '汽水音乐'",
+		`soda: "汽水音乐"`,
 		"function sendSodaSMSCode()",
 		"function validateSodaSMSCode()",
 		"need_sms",

@@ -349,20 +349,6 @@ func playlistCategoryPlaylistsURL(source string, category model.PlaylistCategory
 	return RoutePrefix + "/category_playlists?" + values.Encode()
 }
 
-// writeClipResultsFile 将导入歌曲片段的结果写入 片断解析.txt
-func writeClipResultsFile(result *core.ClipImportResult) {
-	if result == nil {
-		return
-	}
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("总行数: %d  已匹配: %d\n\n", result.Total, result.Matched))
-	for _, song := range result.Songs {
-		sb.WriteString(fmt.Sprintf("✅ %s - %s  (%s)\n", song.Artist, song.Name, song.Source))
-	}
-	path := filepath.Join(core.DataDir(), "片断解析.txt")
-	_ = os.WriteFile(path, []byte(sb.String()), 0644)
-}
-
 func RegisterMusicRoutes(api, configAPI *gin.RouterGroup) {
 
 	api.GET("/", func(c *gin.Context) {
@@ -843,7 +829,7 @@ func RegisterMusicRoutes(api, configAPI *gin.RouterGroup) {
 		tempSong := &model.Song{ID: id, Source: source, Name: name, Artist: artist, Album: album, Cover: coverURL, Extra: extra}
 
 		if saveLocal {
-			// 加载去重集合（成功解析.txt + 下载记录.txt）
+			// 加载 SQLite 去重集合。
 			allSongsSet, _ := core.LoadDownloadDedupSet()
 
 			result, err := core.DownloadWithDedupCheckWithTemplate(tempSong, settings.DownloadDir, embedMeta, embedMeta, settings.DownloadFilenameTemplate, allSongsSet)
@@ -1173,68 +1159,6 @@ func RegisterMusicRoutes(api, configAPI *gin.RouterGroup) {
 		c.JSON(200, gin.H{"total": len(req.Songs), "skipped": skipCount})
 	})
 
-	// 导入已有曲库（仅接受 fileContent 上传，不接受 filePath 以防路径遍历）
-	configAPI.POST("/api/downloads/import", func(c *gin.Context) {
-		var req struct {
-			FileContent string `json:"fileContent"`
-		}
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "请求格式错误"})
-			return
-		}
-
-		if req.FileContent == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "请选择文件上传"})
-			return
-		}
-
-		result, err := core.ImportDirectoryListingFromContent(req.FileContent)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(200, result)
-	})
-
-	// 重置下载日志文件
-	configAPI.DELETE("/api/downloads/logs", func(c *gin.Context) {
-		var files = []string{"下载记录.txt", "跳过下载.txt", "下载失败.txt"}
-		var errs []string
-		for _, f := range files {
-			if err := core.ClearLogFile(f); err != nil {
-				errs = append(errs, f+": "+err.Error())
-			}
-		}
-		if len(errs) > 0 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": strings.Join(errs, "; ")})
-			return
-		}
-		c.JSON(200, gin.H{"status": "ok"})
-	})
-
-	// 导入歌曲片段 — 搜索完整版
-	api.POST("/api/songs/import-clips", func(c *gin.Context) {
-		var req struct {
-			FileContent string   `json:"fileContent"`
-			Sources     []string `json:"sources"`
-			Threshold   float64  `json:"threshold"`
-		}
-		if err := c.ShouldBindJSON(&req); err != nil || req.FileContent == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "请选择文件"})
-			return
-		}
-
-		result, err := core.ImportSongClips(req.FileContent, req.Sources, req.Threshold, nil)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		// 后台写入 片断解析.txt
-		go writeClipResultsFile(result)
-
-		c.JSON(200, result)
-	})
 }
 
 func saveWebAssetResponse(c *gin.Context, filename string, data []byte) {

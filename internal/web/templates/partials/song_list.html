@@ -66,9 +66,8 @@
             </button>
             {{ end }}
             {{ if eq .SearchType "local_music" }}
-            <input id="localMusicPageUploadInput" type="file" accept=".mp3,.flac,.m4a,.ogg,.wav,.wma,.aac,audio/*" onchange="uploadLocalMusicForPage(this)" hidden>
-            <button type="button" class="ctrl-btn primary" onclick="document.getElementById('localMusicPageUploadInput')?.click()">
-                <i class="fa-solid fa-upload"></i> 上传本地音乐
+            <button type="button" class="ctrl-btn primary" onclick="openLocalMusicModal()">
+                <i class="fa-solid fa-folder-plus"></i> 导入本地音乐
             </button>
             <button type="button" class="ctrl-btn primary" onclick="checkDuplicateSongs()" title="检测重复歌曲">
                 <i class="fa-solid fa-triangle-exclamation"></i> 重复检测
