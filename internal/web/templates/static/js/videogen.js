@@ -1065,6 +1065,13 @@
       },
 
       playbackRate: 1,
+      getCurrentPlaybackRate: function() {
+          if (typeof window.getPlayerPlaybackRate === 'function') {
+              const shared = Number(window.getPlayerPlaybackRate());
+              if (Number.isFinite(shared) && shared > 0) return shared;
+          }
+          return Number(this.playbackRate) || 1;
+      },
       toggleSpeedMenu: function(event) {
           if (event) event.stopPropagation();
           const menu = document.getElementById('vg-speed-menu');
@@ -1072,9 +1079,20 @@
           menu.hidden = !menu.hidden;
       },
       setPlaybackRate: function(rate) {
-          this.playbackRate = Number(rate) || 1;
+          const allowed = Array.isArray(window.PLAYER_SPEEDS) && window.PLAYER_SPEEDS.length
+              ? window.PLAYER_SPEEDS
+              : [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3];
+          const normalized = allowed.includes(Number(rate)) ? Number(rate) : 1;
+          this.playbackRate = normalized;
+          if (typeof window.setPlayerPlaybackRate === 'function') {
+              window.setPlayerPlaybackRate(normalized);
+          } else {
+              const audio = this.isLocalAudio ? this.localAudio : (window.ap && window.ap.audio);
+              if (audio) audio.playbackRate = normalized;
+          }
+          if (this.localAudio) this.localAudio.playbackRate = normalized;
           const audio = this.isLocalAudio ? this.localAudio : (window.ap && window.ap.audio);
-          if (audio) audio.playbackRate = this.playbackRate;
+          if (audio) audio.playbackRate = normalized;
           const button = document.getElementById('vg-speed-button');
           if (button) button.textContent = `${this.playbackRate}x`;
           document.querySelectorAll('#vg-speed-menu .vg-speed-option').forEach((option) => {
@@ -1086,7 +1104,12 @@
       initSpeedControl: function() {
           const menu = document.getElementById('vg-speed-menu');
           if (!menu || menu.dataset.initialized === '1') return;
-          menu.innerHTML = [0.5, 1, 1.25, 1.5, 2].map((rate) =>
+          const allowed = Array.isArray(window.PLAYER_SPEEDS) && window.PLAYER_SPEEDS.length
+              ? window.PLAYER_SPEEDS
+              : [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3];
+          const current = Number(this.getCurrentPlaybackRate());
+          this.playbackRate = allowed.includes(current) ? current : 1;
+          menu.innerHTML = allowed.map((rate) =>
               `<button type="button" class="vg-speed-option" data-rate="${rate}">${rate}x</button>`
           ).join('');
           menu.addEventListener('click', (event) => {

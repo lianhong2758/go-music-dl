@@ -1,3 +1,3 @@
 package core
 
-const AppVersion = "1.0.33"
+const AppVersion = "1.1.0"

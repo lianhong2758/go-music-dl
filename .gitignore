@@ -31,3 +31,4 @@ build_log.txt
 .reasonix/
 test_import.txt
 sync_and_pr.bat
+docker/

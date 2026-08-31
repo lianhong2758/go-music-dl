@@ -95,6 +95,15 @@ func TestWebSettingsDefaultAndPersist(t *testing.T) {
 	if defaults.DownloadFilenameTemplate != DefaultDownloadFilenameTemplate {
 		t.Fatalf("default DownloadFilenameTemplate mismatch: got %q want %q", defaults.DownloadFilenameTemplate, DefaultDownloadFilenameTemplate)
 	}
+	if defaults.WebDAVEnabled {
+		t.Fatalf("default WebDAVEnabled should be false")
+	}
+	if defaults.WebDAVURL != "" {
+		t.Fatalf("default WebDAVURL should be empty")
+	}
+	if defaults.WebDAVDir != DefaultWebDAVDir {
+		t.Fatalf("default WebDAVDir mismatch: got %q want %q", defaults.WebDAVDir, DefaultWebDAVDir)
+	}
 	if defaults.DisableFloatingLyrics {
 		t.Fatalf("default DisableFloatingLyrics should be false")
 	}
@@ -146,6 +155,11 @@ func TestWebSettingsDefaultAndPersist(t *testing.T) {
 		DownloadToLocal:          true,
 		DownloadDir:              "",
 		DownloadFilenameTemplate: "{artist} - {name}.{ext}",
+		WebDAVEnabled:            true,
+		WebDAVURL:                "http://127.0.0.1:18080/dav",
+		WebDAVUsername:           "test",
+		WebDAVPassword:           "123456",
+		WebDAVDir:                "music",
 		DisableFloatingLyrics:    true,
 		WebPageSize:              100,
 		CliPageSize:              120,
@@ -170,6 +184,11 @@ func TestWebSettingsDefaultAndPersist(t *testing.T) {
 		DownloadToLocal:          true,
 		DownloadDir:              normalizeWebDownloadDir(DefaultWebDownloadDir),
 		DownloadFilenameTemplate: "{artist} - {name}.{ext}",
+		WebDAVEnabled:            true,
+		WebDAVURL:                "http://127.0.0.1:18080/dav",
+		WebDAVUsername:           "test",
+		WebDAVPassword:           "123456",
+		WebDAVDir:                "music",
 		DisableFloatingLyrics:    true,
 		WebPageSize:              100,
 		CliPageSize:              120,
@@ -278,6 +297,36 @@ func TestWebSettingsLegacyPayloadUsesCurrentSwitchDefaults(t *testing.T) {
 	}
 	if got.AutoCacheOnPlay {
 		t.Fatalf("legacy settings should default AutoCacheOnPlay to false: %#v", got)
+	}
+}
+
+func TestWebSettingsPreservesWebDAVPasswordWhenOmitted(t *testing.T) {
+	baseDir := t.TempDir()
+	t.Setenv("MUSIC_DL_CONFIG_DB", filepath.Join(baseDir, "data", "settings.db"))
+	t.Setenv("MUSIC_DL_COOKIE_FILE", filepath.Join(baseDir, "data", "cookies.json"))
+	resetConfigStateForTest()
+	t.Cleanup(resetConfigStateForTest)
+
+	if err := SaveWebSettings(WebSettings{
+		WebDAVEnabled:  true,
+		WebDAVURL:      "http://127.0.0.1:18080/dav",
+		WebDAVUsername: "test",
+		WebDAVPassword: "secret",
+		WebDAVDir:      "music",
+	}); err != nil {
+		t.Fatalf("save initial webdav settings: %v", err)
+	}
+
+	if err := SaveWebSettings(WebSettings{
+		WebDAVEnabled: true,
+		WebDAVURL:     "http://127.0.0.1:18080/dav",
+	}); err != nil {
+		t.Fatalf("save webdav settings without password: %v", err)
+	}
+
+	got := GetWebSettings()
+	if got.WebDAVPassword != "secret" {
+		t.Fatalf("WebDAVPassword should be preserved when omitted: got %q", got.WebDAVPassword)
 	}
 }
 

@@ -27,6 +27,29 @@ Go Music DL 是一个音乐搜索与下载工具，支持 **Web 界面**、**TUI
 
 ```
 
+Web 服务默认挂载于 `/music` 路径下。如需通过反向代理挂载到二级目录，可使用 `--base-path` 参数：
+
+```bash
+./music-dl web --base-path /dl
+```
+
+对应的 Nginx 反向代理示例：
+
+```nginx
+location /dl/ {
+	proxy_pass http://127.0.0.1:8080;
+
+	proxy_set_header Host $host;
+	proxy_set_header X-Real-IP $remote_addr;
+	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+	proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+location = /dl {
+	return 301 /dl/;
+}
+```
+
 Web 模式默认不要求登录即可搜索、播放、下载、浏览歌单 / 专辑和使用本地歌单等普通功能。只有进入右上角 **设置**、保存系统设置、管理平台 Cookie、通过扫码登录写入 Cookie 等系统配置操作需要管理员登录。
 
 首次触发系统配置登录时，如果还没有管理员账号，启动终端会打印一次性初始化令牌。打开初始化页后填入该令牌，并设置用户名和至少 6 位密码即可创建管理员账号；之后点击设置或右上角登录按钮会进入登录流程。会话 Cookie 默认保留 7 天，右上角按钮会根据状态切换为登录 / 退出登录；退出后会回到首页，普通功能仍可继续使用。
@@ -146,6 +169,18 @@ ffmpeg -version
 * Windows: `winget install Gyan.FFmpeg`
 * macOS: `brew install ffmpeg`
 * Ubuntu/Debian: `sudo apt install ffmpeg`
+
+## WebDAV 同步
+
+Web 设置里新增了 **下载时同步到 WebDAV** 开关。开启并填写 WebDAV 地址、用户名、密码和远端目录后，点击“保存到本地目录”或“浏览器下载”时，会把音乐文件同时上传到 WebDAV。密码保存在服务端 `data/settings.db`，Web 设置接口不会回显密码。
+
+仓库提供本地 Docker WebDAV 测试配置，使用 `127.0.0.1`，不需要域名：
+
+```bash
+docker compose -f docker-compose.webdav.yml up -d
+```
+
+测试地址为 `http://127.0.0.1:18081/dav`，用户名 `test`，密码 `123456`。上传目录会映射到本仓库的 `data/webdav`。
 
 ### Docker / Release 包里的 FFmpeg 与 ffprobe
 
@@ -645,6 +680,7 @@ go-music-dl/
 * **无损音乐**: [Suxiaoqinx/Netease_url](https://github.com/Suxiaoqinx/Netease_url) - 网易云音乐 FLAC 无损音乐解析
 * **QQ 音乐**: [Suxiaoqinx/qqmusic_flac](https://github.com/Suxiaoqinx/qqmusic_flac) - QQ 音乐 FLAC 解析
 * **逐字歌词展示参考**: [chenmozhijin/LDDC](https://github.com/chenmozhijin/LDDC) - 原文 / 译文 / 罗马音逐字歌词的组织与展示思路参考
+* **汽水音乐接口参考**: [Zencok/baka-plugins](https://github.com/Zencok/baka-plugins) - 汽水音乐搜索、取流和扫码接口参考
 
 ## 免责声明
 
@@ -652,4 +688,4 @@ go-music-dl/
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/image?repos=guohuiyuan/go-music-dl&type=date&legend=top-left)](https://www.star-history.com/?repos=guohuiyuan%2Fgo-music-dl&type=date&legend=top-left)
+[![Star History Chart](https://star-history.dera.page/svg?repos=guohuiyuan/go-music-dl&type=date&legend=top-left)](https://star-history.dera.page/#guohuiyuan/go-music-dl&type=date&legend=top-left)

@@ -838,6 +838,13 @@ func RegisterMusicRoutes(api, configAPI *gin.RouterGroup) {
 				return
 			}
 
+			webdavError := ""
+			if !result.Skipped && core.WebDAVConfigured(settings) {
+				if err := core.UploadSongToWebDAV(settings, result.Filename, result.Data); err != nil {
+					webdavError = err.Error()
+				}
+			}
+
 			payload := gin.H{
 				"status":   "ok",
 				"saved":    true,
@@ -847,6 +854,9 @@ func RegisterMusicRoutes(api, configAPI *gin.RouterGroup) {
 			}
 			if result.Warning != "" {
 				payload["warning"] = result.Warning
+			}
+			if webdavError != "" {
+				payload["webdav_error"] = webdavError
 			}
 			c.JSON(200, payload)
 			return
@@ -858,8 +868,17 @@ func RegisterMusicRoutes(api, configAPI *gin.RouterGroup) {
 				c.String(502, "Upstream stream error")
 				return
 			}
+			warnings := make([]string, 0, 2)
 			if result.Warning != "" {
-				c.Header("X-MusicDL-Warning", result.Warning)
+				warnings = append(warnings, result.Warning)
+			}
+			if core.WebDAVConfigured(settings) {
+				if err := core.UploadSongToWebDAV(settings, result.Filename, result.Data); err != nil {
+					warnings = append(warnings, err.Error())
+				}
+			}
+			if len(warnings) > 0 {
+				c.Header("X-MusicDL-Warning", strings.Join(warnings, "; "))
 			}
 
 			setDownloadHeader(c, result.Filename)
@@ -887,13 +906,24 @@ func RegisterMusicRoutes(api, configAPI *gin.RouterGroup) {
 			}
 			defer resp.Body.Close()
 			encryptedData, _ := io.ReadAll(resp.Body)
-			finalData, err := soda.DecryptAudio(encryptedData, info.PlayAuth)
-			if err != nil {
-				c.String(500, "Decrypt failed")
-				return
+			var finalData []byte
+			// 汽水 SEO 路径返回明文 m4a（无 play_auth）。
+			if strings.TrimSpace(info.PlayAuth) == "" {
+				finalData = encryptedData
+			} else {
+				finalData, err = soda.DecryptAudio(encryptedData, info.PlayAuth)
+				if err != nil {
+					c.String(500, "Decrypt failed")
+					return
+				}
 			}
 			ext := core.DetectAudioExt(finalData)
 			filename := core.BuildDownloadFilename(tempSong, ext, settings.DownloadFilenameTemplate)
+			if !streamPlayback && core.WebDAVConfigured(settings) {
+				if err := core.UploadSongToWebDAV(settings, filename, finalData); err != nil {
+					c.Header("X-MusicDL-Warning", err.Error())
+				}
+			}
 			if !streamPlayback {
 				setDownloadHeader(c, filename)
 			}
@@ -958,6 +988,15 @@ func RegisterMusicRoutes(api, configAPI *gin.RouterGroup) {
 		}
 		defer resp.Body.Close()
 
+		var bufferedData []byte
+		if core.WebDAVConfigured(settings) && !streamPlayback {
+			bufferedData, err = io.ReadAll(resp.Body)
+			if err != nil {
+				c.String(502, "Upstream stream error")
+				return
+			}
+		}
+
 		for k, v := range resp.Header {
 			if k != "Transfer-Encoding" && k != "Date" && k != "Access-Control-Allow-Origin" {
 				c.Writer.Header()[k] = v
@@ -982,6 +1021,11 @@ func RegisterMusicRoutes(api, configAPI *gin.RouterGroup) {
 		}
 
 		filename := core.BuildDownloadFilename(tempSong, ext, settings.DownloadFilenameTemplate)
+		if bufferedData != nil && resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices {
+			if err := core.UploadSongToWebDAV(settings, filename, bufferedData); err != nil {
+				c.Header("X-MusicDL-Warning", err.Error())
+			}
+		}
 		if streamPlayback {
 			contentType := strings.TrimSpace(strings.ToLower(resp.Header.Get("Content-Type")))
 			if contentType == "" || strings.HasPrefix(contentType, "application/octet-stream") {
@@ -991,7 +1035,11 @@ func RegisterMusicRoutes(api, configAPI *gin.RouterGroup) {
 			setDownloadHeader(c, filename)
 		}
 		c.Status(resp.StatusCode)
-		io.Copy(c.Writer, resp.Body)
+		if bufferedData != nil {
+			_, _ = c.Writer.Write(bufferedData)
+		} else {
+			_, _ = io.Copy(c.Writer, resp.Body)
+		}
 	}
 	api.GET("/download", downloadHandler)
 	api.POST("/download", downloadHandler)

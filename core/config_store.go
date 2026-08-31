@@ -44,6 +44,11 @@ type WebSettings struct {
 	DownloadToLocal          bool   `json:"downloadToLocal"`
 	DownloadDir              string `json:"downloadDir"`
 	DownloadFilenameTemplate string `json:"downloadFilenameTemplate"`
+	WebDAVEnabled            bool   `json:"webdavEnabled"`
+	WebDAVURL                string `json:"webdavUrl"`
+	WebDAVUsername           string `json:"webdavUsername"`
+	WebDAVPassword           string `json:"webdavPassword"`
+	WebDAVDir                string `json:"webdavDir"`
 	DisableFloatingLyrics    bool   `json:"disableFloatingLyrics"`
 	WebPageSize              int    `json:"webPageSize"`
 	CliPageSize              int    `json:"cliPageSize"`
@@ -193,6 +198,12 @@ func normalizeWebSettings(settings WebSettings) WebSettings {
 	if settings.DownloadFilenameTemplate == "" {
 		settings.DownloadFilenameTemplate = DefaultDownloadFilenameTemplate
 	}
+	settings.WebDAVURL = strings.TrimSpace(settings.WebDAVURL)
+	settings.WebDAVUsername = strings.TrimSpace(settings.WebDAVUsername)
+	settings.WebDAVDir = strings.Trim(strings.TrimSpace(settings.WebDAVDir), "/")
+	if settings.WebDAVDir == "" {
+		settings.WebDAVDir = DefaultWebDAVDir
+	}
 	if settings.WebPageSize <= 0 {
 		settings.WebPageSize = DefaultWebPageSize
 	}
@@ -263,6 +274,9 @@ func SaveWebSettings(settings WebSettings) error {
 		return err
 	}
 
+	if strings.TrimSpace(settings.WebDAVPassword) == "" {
+		settings.WebDAVPassword = GetWebSettings().WebDAVPassword
+	}
 	settings = normalizeWebSettings(settings)
 	data, err := json.Marshal(settings)
 	if err != nil {

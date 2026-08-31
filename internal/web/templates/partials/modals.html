@@ -36,6 +36,35 @@
                 </label>
                 <p class="setting-hint">影响"保存到本地目录"和"浏览器下载"两种方式；播放始终使用流式下载，不内嵌元数据。</p>
             </div>
+            <div class="cookie-item setting-item">
+                <label class="setting-toggle" for="setting-webdav-enabled">
+                    <input type="checkbox" id="setting-webdav-enabled">
+                    <span class="setting-switch" aria-hidden="true"></span>
+                    <span class="setting-toggle-text">下载时同步到 WebDAV</span>
+                </label>
+                <p class="setting-hint">保存到本地目录或浏览器下载时，同时上传到已配置的 WebDAV。</p>
+            </div>
+            <div id="webdav-settings-fields" style="display: none;">
+                <div class="cookie-item">
+                    <label for="setting-webdav-url">WebDAV 地址</label>
+                    <input type="url" id="setting-webdav-url" placeholder="http://127.0.0.1:18081/dav" autocomplete="off">
+                    <p class="setting-hint" style="margin-left: 0;">测试示例：<code>http://127.0.0.1:18081/dav</code>，不需要域名。</p>
+                </div>
+                <div class="cookie-item">
+                    <label for="setting-webdav-username">用户名</label>
+                    <input type="text" id="setting-webdav-username" autocomplete="username">
+                </div>
+                <div class="cookie-item">
+                    <label for="setting-webdav-password">密码</label>
+                    <input type="password" id="setting-webdav-password" autocomplete="new-password" placeholder="留空则保留已保存密码">
+                    <p class="setting-hint" style="margin-left: 0;">密码只保存在服务器配置中，不会回显到页面。</p>
+                </div>
+                <div class="cookie-item">
+                    <label for="setting-webdav-dir">远端目录</label>
+                    <input type="text" id="setting-webdav-dir" value="music-dl" placeholder="music-dl">
+                    <p class="setting-hint" style="margin-left: 0;">上传到 WebDAV 下的子目录，默认 <code>music-dl</code>。</p>
+                </div>
+            </div>
             <div class="cookie-item">
                 <label for="setting-download-dir">本地下载目录</label>
                 <div class="download-dir-control">

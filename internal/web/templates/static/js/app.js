@@ -39,6 +39,11 @@ let webSettings = {
   downloadToLocal: true,
   downloadDir: "data/downloads",
   downloadFilenameTemplate: "{name} - {artist}",
+  webdavEnabled: false,
+  webdavUrl: "",
+  webdavUsername: "",
+  webdavPassword: "",
+  webdavDir: "music-dl",
   disableFloatingLyrics: false,
   webPageSize: DEFAULT_WEB_PAGE_SIZE,
   cliPageSize: DEFAULT_CLI_PAGE_SIZE,
@@ -60,6 +65,11 @@ function normalizeWebSettings(raw) {
     downloadToLocal: true,
     downloadDir: "data/downloads",
     downloadFilenameTemplate: "{name} - {artist}",
+    webdavEnabled: false,
+    webdavUrl: "",
+    webdavUsername: "",
+    webdavPassword: "",
+    webdavDir: "music-dl",
     disableFloatingLyrics: false,
     webPageSize: DEFAULT_WEB_PAGE_SIZE,
     cliPageSize: DEFAULT_CLI_PAGE_SIZE,
@@ -90,6 +100,24 @@ function normalizeWebSettings(raw) {
     raw.downloadFilenameTemplate.trim() !== ""
   ) {
     next.downloadFilenameTemplate = raw.downloadFilenameTemplate.trim();
+  }
+  if (typeof raw.webdavEnabled === "boolean") {
+    next.webdavEnabled = raw.webdavEnabled;
+  }
+  if (typeof raw.webdavUrl === "string" && raw.webdavUrl.trim() !== "") {
+    next.webdavUrl = raw.webdavUrl.trim();
+  }
+  if (
+    typeof raw.webdavUsername === "string" &&
+    raw.webdavUsername.trim() !== ""
+  ) {
+    next.webdavUsername = raw.webdavUsername.trim();
+  }
+  if (typeof raw.webdavPassword === "string") {
+    next.webdavPassword = raw.webdavPassword;
+  }
+  if (typeof raw.webdavDir === "string" && raw.webdavDir.trim() !== "") {
+    next.webdavDir = raw.webdavDir.trim().replace(/^\/+|\/+$/g, "");
   }
   if (typeof raw.disableFloatingLyrics === "boolean") {
     next.disableFloatingLyrics = raw.disableFloatingLyrics;
@@ -166,6 +194,23 @@ function applyVideoGenFeatureVisibility() {
     const element = document.getElementById(elementId);
     if (!element) return;
     element.style.display = webSettings[key] ? "flex" : "none";
+  });
+}
+
+function syncWebDAVVisibility() {
+  const fields = document.getElementById("webdav-settings-fields");
+  if (fields) {
+    fields.style.display = webSettings.webdavEnabled ? "block" : "none";
+  }
+}
+
+function bindWebDAVSettingEvents() {
+  const toggle = document.getElementById("setting-webdav-enabled");
+  if (!toggle || toggle.dataset.bound === "1") return;
+  toggle.dataset.bound = "1";
+  toggle.addEventListener("change", () => {
+    const fields = document.getElementById("webdav-settings-fields");
+    if (fields) fields.style.display = toggle.checked ? "block" : "none";
   });
 }
 
@@ -249,6 +294,35 @@ function applyWebSettings(settings) {
   if (embedToggle) {
     embedToggle.checked = webSettings.embedDownload;
   }
+
+  const webdavEnabledToggle = document.getElementById(
+    "setting-webdav-enabled",
+  );
+  if (webdavEnabledToggle) {
+    webdavEnabledToggle.checked = webSettings.webdavEnabled;
+  }
+  const webdavUrlInput = document.getElementById("setting-webdav-url");
+  if (webdavUrlInput) {
+    webdavUrlInput.value = webSettings.webdavUrl;
+  }
+  const webdavUsernameInput = document.getElementById(
+    "setting-webdav-username",
+  );
+  if (webdavUsernameInput) {
+    webdavUsernameInput.value = webSettings.webdavUsername;
+  }
+  const webdavPasswordInput = document.getElementById(
+    "setting-webdav-password",
+  );
+  if (webdavPasswordInput) {
+    webdavPasswordInput.value = webSettings.webdavPassword;
+  }
+  const webdavDirInput = document.getElementById("setting-webdav-dir");
+  if (webdavDirInput) {
+    webdavDirInput.value = webSettings.webdavDir;
+  }
+  bindWebDAVSettingEvents();
+  syncWebDAVVisibility();
 
   const dirInput = document.getElementById("setting-download-dir");
   if (dirInput) {
@@ -787,10 +861,16 @@ async function handleDownloadClick(link) {
   try {
     const data = await requestLocalDownload(link.href);
     let message = data.path || webSettings.downloadDir;
+    let warning = false;
     if (data.warning) {
       message += `\n提示: ${data.warning}`;
+      warning = true;
     }
-    showToast("下载完成", message, data.warning ? "warning" : "success", 0);
+    if (data.webdav_error) {
+      message += `\nWebDAV: ${data.webdav_error}`;
+      warning = true;
+    }
+    showToast("下载完成", message, warning ? "warning" : "success", 0);
     return true;
   } catch (error) {
     showToast("下载失败", error.message || "下载失败", "error", 0);
@@ -902,7 +982,7 @@ function bindSearchForm(root = document) {
     });
     targetURL.search = params.toString();
 
-    navigateTo(targetURL.toString());
+    navigateTo(targetURL.toString(), { scrollToResults: true });
   };
 }
 
@@ -1220,6 +1300,32 @@ function syncRightToolbar(nextDoc, currentContainer) {
   refreshAuthFloat();
 }
 
+// 结果区顶部至少要有这么多像素可见，才认为用户已经能看到搜索结果。
+const MIN_VISIBLE_RESULTS_PX = 120;
+
+// 小屏（安卓 WebView）首屏几乎被搜索框与搜索源面板占满，搜索后若仍停在页面
+// 顶部，结果列表会落在首屏之外，用户会误以为"搜索为空"。这里把结果区（无结果
+// 时为空状态提示）滚到视口顶部。结果区已有足够高度可见时不滚动，避免桌面端
+// 无谓跳动。只在搜索提交时调用，分页/播放列表等内部导航保持原行为。
+function scrollToSearchResults() {
+  const target =
+    document.querySelector(".list-header") ||
+    document.querySelector(".no-results");
+  if (!target) {
+    return;
+  }
+
+  const rect = target.getBoundingClientRect();
+  if (rect.top >= 0 && window.innerHeight - rect.top >= MIN_VISIBLE_RESULTS_PX) {
+    return;
+  }
+
+  window.scrollTo({
+    top: Math.max(rect.top + window.scrollY - 12, 0),
+    behavior: "auto",
+  });
+}
+
 async function navigateTo(url, options = {}) {
   let targetURL;
   try {
@@ -1291,7 +1397,9 @@ async function navigateTo(url, options = {}) {
     initializePageContent(currentContainer);
     updateFloatPageNav();
 
-    if (options.scroll !== false) {
+    if (options.scrollToResults) {
+      scrollToSearchResults();
+    } else if (options.scroll !== false) {
       window.scrollTo({ top: 0, behavior: "auto" });
     }
 
@@ -1300,6 +1408,15 @@ async function navigateTo(url, options = {}) {
     if (error && error.name === "AbortError") {
       return false;
     }
+    // WebView 可能不把 console 输出到 logcat，SPA 回退时把错误经桥接回传，
+    // 便于在壳层日志里定位是哪一步在安卓端失败。
+    try {
+      if (globalThis.callback && typeof globalThis.callback.musicDlAppState === "function") {
+        globalThis.callback.musicDlAppState(
+          "spa_error:" + (error && error.message ? error.message : String(error))
+        );
+      }
+    } catch (_) {}
     window.location.href = targetURL.toString();
     return false;
   } finally {
@@ -1470,6 +1587,11 @@ document.addEventListener("DOMContentLoaded", function () {
   bindPageNavigationEvents();
   initializePageContent(document);
   updateFloatPageNav();
+  // 直接打开搜索结果链接，或 SPA 失败回退到整页加载时，同样把结果滚入视口。
+  // 仅在 URL 带搜索词时触发，普通页面加载不受影响。
+  if (new URLSearchParams(window.location.search).get("q")) {
+    scrollToSearchResults();
+  }
   if (
     new URLSearchParams(window.location.search).get(OPEN_CONFIG_QUERY) === "1"
   ) {
@@ -3748,6 +3870,14 @@ async function saveCookies() {
     downloadFilenameTemplate:
       document.getElementById("setting-download-filename-template")?.value ||
       "",
+    webdavEnabled: !!document.getElementById("setting-webdav-enabled")
+      ?.checked,
+    webdavUrl: document.getElementById("setting-webdav-url")?.value || "",
+    webdavUsername:
+      document.getElementById("setting-webdav-username")?.value || "",
+    webdavPassword:
+      document.getElementById("setting-webdav-password")?.value || "",
+    webdavDir: document.getElementById("setting-webdav-dir")?.value || "",
     disableFloatingLyrics: !document.getElementById("setting-floating-lyrics")
       ?.checked,
     webPageSize: parsePositiveInt(
@@ -4815,29 +4945,173 @@ const KaraokeLyrics = (() => {
 
 window.KaraokeLyrics = KaraokeLyrics;
 
-// APlayer Config
-const ap = new APlayer({
-  container: document.getElementById("aplayer"),
-  fixed: true,
-  autoplay: false,
-  theme: "#10b981",
-  loop: "all",
-  order: "list",
-  preload: "metadata",
-  volume: 0.7,
-  listFolded: false,
-  lrcType: 3,
-  audio: [],
-});
+// APlayer Config. APlayer 由 CDN 加载，若 CDN 不可达会影响整个脚本；
+// 这里把初始化单独保护起来，避免播放器库缺失导致页面其他功能不可用。
+let ap = null;
+try {
+  if (typeof APlayer === "undefined") {
+    throw new Error("APlayer CDN 未加载");
+  }
+  ap = new APlayer({
+    container: document.getElementById("aplayer"),
+    fixed: true,
+    autoplay: false,
+    theme: "#10b981",
+    loop: "all",
+    order: "list",
+    preload: "metadata",
+    volume: 0.7,
+    listFolded: false,
+    lrcType: 3,
+    audio: [],
+  });
+} catch (error) {
+  console.warn("[music-dl] APlayer 初始化失败，播放器功能不可用:", error);
+}
 
 window.ap = ap;
+
+const PLAYER_SPEEDS = Object.freeze([
+  0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3,
+]);
+let playerSpeed = (() => {
+  const saved = Number(localStorage.getItem("musicdl:playbackRate"));
+  return PLAYER_SPEEDS.includes(saved) ? saved : 1;
+})();
+
+window.PLAYER_SPEEDS = PLAYER_SPEEDS;
+window.playerSpeed = playerSpeed;
+window.getPlayerPlaybackRate = () => playerSpeed;
+
+function applyPlayerPlaybackRate(rate) {
+  if (!ap?.audio) return;
+  const normalized = Number(rate) || 1;
+  ap.audio.playbackRate = normalized;
+  if (window.VideoGen?.isLocalAudio && window.VideoGen?.localAudio) {
+    window.VideoGen.localAudio.playbackRate = normalized;
+  }
+  const btn = document.querySelector(".player-speed-btn");
+  if (btn) btn.textContent = `${normalized}x`;
+  document.querySelectorAll(".player-speed-option").forEach((option) => {
+    option.classList.toggle(
+      "active",
+      Number(option.dataset.rate) === normalized,
+    );
+  });
+  const vgBtn = document.getElementById("vg-speed-button");
+  if (vgBtn) vgBtn.textContent = `${normalized}x`;
+  document.querySelectorAll("#vg-speed-menu .vg-speed-option").forEach(
+    (option) => {
+      option.classList.toggle(
+        "active",
+        Number(option.dataset.rate) === normalized,
+      );
+    },
+  );
+  syncMediaSession();
+}
+
+function setPlayerPlaybackRate(rate) {
+  const normalized = Number(rate);
+  if (!PLAYER_SPEEDS.includes(normalized)) return;
+  playerSpeed = normalized;
+  window.playerSpeed = normalized;
+  localStorage.setItem("musicdl:playbackRate", String(normalized));
+  if (window.VideoGen) {
+    window.VideoGen.playbackRate = normalized;
+  }
+  applyPlayerPlaybackRate(normalized);
+}
+
+window.setPlayerPlaybackRate = setPlayerPlaybackRate;
+window.applyPlayerPlaybackRate = applyPlayerPlaybackRate;
+
+(function initPlayerSpeedControl() {
+  let attempts = 0;
+
+  function tryInject() {
+    attempts++;
+    if (attempts > 30) return;
+
+    const apFixed = document.querySelector(".aplayer.aplayer-fixed");
+    if (!apFixed) {
+      setTimeout(tryInject, 100);
+      return;
+    }
+    if (document.querySelector(".player-speed-wrap")) return;
+
+    const wrap = document.createElement("div");
+    wrap.className = "player-speed-wrap";
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "player-speed-btn";
+    button.textContent = `${playerSpeed}x`;
+    button.title = "播放速度";
+    button.setAttribute("aria-label", "播放速度");
+    button.setAttribute("aria-haspopup", "true");
+    button.setAttribute("aria-expanded", "false");
+
+    const menu = document.createElement("div");
+    menu.className = "player-speed-menu";
+    menu.hidden = true;
+    menu.innerHTML = PLAYER_SPEEDS.map(
+      (rate) =>
+        `<button type="button" class="player-speed-option${
+          rate === playerSpeed ? " active" : ""
+        }" data-rate="${rate}">${rate}x</button>`,
+    ).join("");
+
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const nextHidden = !menu.hidden;
+      menu.hidden = nextHidden;
+      button.setAttribute("aria-expanded", String(!nextHidden));
+    });
+
+    menu.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const option = event.target.closest(".player-speed-option");
+      if (!option) return;
+      setPlayerPlaybackRate(Number(option.dataset.rate));
+      menu.hidden = true;
+      button.setAttribute("aria-expanded", "false");
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!wrap.contains(event.target)) {
+        menu.hidden = true;
+        button.setAttribute("aria-expanded", "false");
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !menu.hidden) {
+        menu.hidden = true;
+        button.setAttribute("aria-expanded", "false");
+      }
+    });
+
+    wrap.append(button, menu);
+    apFixed.appendChild(wrap);
+    applyPlayerPlaybackRate(playerSpeed);
+  }
+
+  setTimeout(tryInject, 100);
+})();
+
+applyPlayerPlaybackRate(playerSpeed);
 
 setupMediaSession();
 ap.audio.addEventListener("timeupdate", () => KaraokeLyrics.update());
 ap.audio.addEventListener("seeked", () => KaraokeLyrics.update());
-ap.audio.addEventListener("loadedmetadata", () =>
-  KaraokeLyrics.load(getCurrentAPlayerAudio()),
-);
+ap.audio.addEventListener("loadedmetadata", () => {
+  KaraokeLyrics.load(getCurrentAPlayerAudio());
+  applyPlayerPlaybackRate(playerSpeed);
+});
+ap.audio.addEventListener("emptied", () => {
+  applyPlayerPlaybackRate(playerSpeed);
+});
 ap.audio.addEventListener("play", () =>
   KaraokeLyrics.handlePlayStateChange(true),
 );
@@ -4956,6 +5230,7 @@ setTimeout(() => {
 
 ap.on("listswitch", (e) => {
   const index = e.index;
+  applyPlayerPlaybackRate(playerSpeed);
   const newAudio = ap.list.audios[index];
   const playbackCardID = getPlaybackCardID(newAudio);
   if (playbackCardID) {
@@ -4996,6 +5271,7 @@ ap.on("listswitch", (e) => {
 });
 
 ap.on("play", () => {
+  applyPlayerPlaybackRate(playerSpeed);
   const idx = ap?.list?.index;
   const audio = typeof idx === "number" ? ap.list.audios[idx] : null;
   rememberPlaybackHistory(audio);
@@ -5787,6 +6063,7 @@ function updateBatchToolbar() {
   const batchRemoveCollection = document.getElementById(
     "btn-batch-remove-collection",
   );
+  const batchCopy = document.getElementById("btn-batch-copy-urls");
 
   if (document.getElementById("selected-count")) {
     document.getElementById("selected-count").textContent = count;
@@ -5808,6 +6085,7 @@ function updateBatchToolbar() {
   if (count > 0) {
     if (batchSwitch) batchSwitch.disabled = nonLocalCount === 0;
     if (batchDl) batchDl.disabled = nonLocalCount === 0;
+    if (batchCopy) batchCopy.disabled = nonLocalCount === 0;
     if (batchDeleteLocal) batchDeleteLocal.disabled = localCount === 0;
     if (batchFavLocal) batchFavLocal.disabled = localCount === 0;
     if (batchFav) batchFav.disabled = false;
@@ -5815,6 +6093,7 @@ function updateBatchToolbar() {
   } else {
     if (batchSwitch) batchSwitch.disabled = true;
     if (batchDl) batchDl.disabled = true;
+    if (batchCopy) batchCopy.disabled = !pageHasNonLocalSongs();
     if (batchDeleteLocal) batchDeleteLocal.disabled = true;
     if (batchFavLocal) batchFavLocal.disabled = true;
     if (batchFav) batchFav.disabled = true;
@@ -5875,6 +6154,111 @@ function getSelectedSongs() {
   return songs;
 }
 
+function pageHasNonLocalSongs() {
+  const cards = document.querySelectorAll(".song-card");
+  for (const card of cards) {
+    const song = songFromCard(card);
+    if (song && !isLocalMusicSourceValue(song.source)) return true;
+  }
+  return false;
+}
+
+function toAbsoluteDownloadURL(url) {
+  const value = String(url || "");
+  if (!value) return value;
+  if (/^https?:\/\//i.test(value) || value.startsWith("//")) return value;
+  try {
+    return new URL(value, window.location.href).href;
+  } catch (_) {
+    return value;
+  }
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch (_) {
+      // Fall through to the legacy path for webviews without clipboard permission.
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.top = "0";
+  textarea.style.left = "0";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  textarea.setSelectionRange(0, text.length);
+  const copied = document.execCommand && document.execCommand("copy");
+  document.body.removeChild(textarea);
+  if (!copied) {
+    throw new Error("当前环境不支持剪贴板");
+  }
+}
+
+async function batchCopyDownloadUrls() {
+  const selectedSongs = getSelectedSongs().filter(
+    (song) => !isLocalMusicSourceValue(song.source),
+  );
+
+  let songs = selectedSongs;
+  if (songs.length === 0) {
+    songs = [];
+    document.querySelectorAll(".song-card").forEach((card) => {
+      const song = songFromCard(card);
+      if (song && !isLocalMusicSourceValue(song.source)) {
+        songs.push(song);
+      }
+    });
+  }
+
+  if (songs.length === 0) {
+    showToast("没有可复制的下载地址", "当前列表没有可下载的歌曲。", "info");
+    return;
+  }
+
+  const urls = songs.map((song) =>
+    toAbsoluteDownloadURL(
+      buildBrowserDownloadURL(
+        song.id,
+        song.source,
+        song.name,
+        song.artist,
+        song.album || "",
+        song.cover || "",
+        song.extra || "",
+      ),
+    ),
+  );
+  const text = urls.join("\n");
+
+  try {
+    await copyTextToClipboard(text);
+    const scope =
+      selectedSongs.length > 0
+        ? `已选 ${selectedSongs.length} 首`
+        : `当前页 ${songs.length} 首`;
+    showToast(
+      "下载地址已复制",
+      `${scope}歌曲的下载链接已写入剪贴板，可直接粘贴到 aria2。`,
+      "success",
+      BATCH_DOWNLOAD_NOTICE_MS,
+    );
+  } catch (err) {
+    showToast(
+      "复制失败",
+      err && err.message ? err.message : "请手动复制。",
+      "warning",
+    );
+  }
+}
+
 async function batchDownload() {
   const selectedSongs = getSelectedSongs();
   const songs = selectedSongs.filter(
@@ -5923,7 +6307,7 @@ async function batchDownload() {
           skipped++;
         } else {
           success++;
-          if (result && result.warning) {
+          if (result && (result.warning || result.webdav_error)) {
             warningCount++;
           }
         }
